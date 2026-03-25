@@ -56,7 +56,7 @@ with tab4:
     if st.button("Calcular"):
 
         # -------------------------
-        # CÁLCULOS
+        # CÁLCULOS DE RECURSOS
         # -------------------------
         cpu_required = total_vcpu * 1.2
         ram_required = total_ram * 1.3
@@ -90,6 +90,15 @@ with tab4:
             st.info("📦 Se requiere almacenamiento RWX (Live Migration)")
 
         # -------------------------
+        # CÁLCULO SUSCRIPCIONES RHV
+        # -------------------------
+        subscriptions_per_node = 1  # 1 suscripción por nodo físico
+        total_subscriptions = nodes_required * subscriptions_per_node
+
+        st.subheader("Licenciamiento Red Hat Virtualization")
+        st.info(f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico)")
+
+        # -------------------------
         # GRÁFICO
         # -------------------------
         st.subheader("Resumen de recursos")
@@ -109,11 +118,11 @@ with tab4:
         report = pd.DataFrame({
             "Parametro": [
                 "Clusters", "Hosts", "VMs", "CPU requerida",
-                "RAM requerida", "Storage requerido", "Nodos"
+                "RAM requerida", "Storage requerido", "Nodos", "Suscripciones RHV"
             ],
             "Valor": [
                 clusters, hosts, total_vms, cpu_required,
-                ram_required, storage_required, nodes_required
+                ram_required, storage_required, nodes_required, total_subscriptions
             ]
         })
 
@@ -124,14 +133,4 @@ with tab4:
             data=csv,
             file_name="openshift_sizing.csv",
             mime="text/csv"
-
-            # -------------------------
-            # SUSCRIPCIONES RHV
-            # -------------------------
-            # Supongamos 1 suscripción por nodo físico
-            subscriptions_per_node = 1
-            total_subscriptions = nodes_required * subscriptions_per_node
-
-            st.subheader("Licenciamiento Red Hat Virtualization")
-            st.info(f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico)")
         )
