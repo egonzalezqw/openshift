@@ -58,24 +58,30 @@ with tab4:
         # -------------------------
         # CÁLCULOS DE RECURSOS
         # -------------------------
-        cpu_required = total_vcpu * 1.2
-        ram_required = total_ram * 1.3
-        storage_required = storage_total * (1 + storage_growth / 100) * 1.2
+        cpu_required = total_vcpu * 1.2  # factor de seguridad 20%
+        ram_required = total_ram * 1.3   # factor de seguridad 30%
+        storage_required = storage_total * (1 + storage_growth / 100) * 1.2  # factor 20%
 
-        # Suposiciones de nodo
-        cpu_per_node = 32
-        ram_per_node = 128
+        # -------------------------
+        # SUPOSICIONES DE NODO
+        # -------------------------
+        cpu_per_node = 32  # cores por nodo (ejemplo)
+        ram_per_node = 128  # GB por nodo
+        max_cores_per_node = 128  # OpenShift Virtualization licencia por nodo hasta 128 cores
 
-        nodes_cpu = cpu_required / cpu_per_node
+        # Ajuste de cores por nodo según OVF
+        cores_per_node = min(cpu_per_node, max_cores_per_node)
+
+        # Número de nodos basado en CPU y RAM
+        nodes_cpu = cpu_required / cores_per_node
         nodes_ram = ram_required / ram_per_node
 
         nodes_required = int(max(nodes_cpu, nodes_ram)) + 1
 
         # -------------------------
-        # RESULTADOS
+        # RESULTADOS PRINCIPALES
         # -------------------------
         col1, col2, col3 = st.columns(3)
-
         col1.metric("CPU requerida (vCPU)", round(cpu_required, 2))
         col2.metric("RAM requerida (GB)", round(ram_required, 2))
         col3.metric("Storage requerido (TB)", round(storage_required, 2))
@@ -90,35 +96,35 @@ with tab4:
             st.info("📦 Se requiere almacenamiento RWX (Live Migration)")
 
         # -------------------------
-        # CÁLCULO SUSCRIPCIONES RHV
+        # LICENCIAMIENTO OPENSHIFT VIRTUALIZATION
         # -------------------------
-        subscriptions_per_node = 1  # 1 suscripción por nodo físico
-        total_subscriptions = nodes_required * subscriptions_per_node
+        total_subscriptions = nodes_required  # 1 suscripción por nodo físico
 
-        st.subheader("Licenciamiento Red Hat Virtualization")
-        st.info(f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico)")
+        st.subheader("Licenciamiento OpenShift Virtualization")
+        st.info(
+            f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico, hasta 128 cores por nodo)\n"
+            "🔹 VMs ilimitadas por nodo\n"
+            "🔹 Alta disponibilidad nativa sobre Kubernetes"
+        )
 
         # -------------------------
-        # GRÁFICO
+        # GRÁFICO RESUMEN
         # -------------------------
         st.subheader("Resumen de recursos")
-
         chart_data = pd.DataFrame({
             "Recurso": ["CPU", "RAM", "Storage"],
             "Cantidad": [cpu_required, ram_required, storage_required]
         })
-
         st.bar_chart(chart_data.set_index("Recurso"))
 
         # -------------------------
         # REPORTE DESCARGABLE
         # -------------------------
         st.subheader("Exportar resultados")
-
         report = pd.DataFrame({
             "Parametro": [
                 "Clusters", "Hosts", "VMs", "CPU requerida",
-                "RAM requerida", "Storage requerido", "Nodos", "Suscripciones RHV"
+                "RAM requerida", "Storage requerido", "Nodos", "Suscripciones OpenShift Virtualization"
             ],
             "Valor": [
                 clusters, hosts, total_vms, cpu_required,
@@ -127,7 +133,6 @@ with tab4:
         })
 
         csv = report.to_csv(index=False).encode('utf-8')
-
         st.download_button(
             label="📥 Descargar reporte CSV",
             data=csv,
