@@ -124,4 +124,14 @@ with tab4:
             data=csv,
             file_name="openshift_sizing.csv",
             mime="text/csv"
+
+            # -------------------------
+            # SUSCRIPCIONES RHV
+            # -------------------------
+            # Supongamos 1 suscripción por nodo físico
+            subscriptions_per_node = 1
+            total_subscriptions = nodes_required * subscriptions_per_node
+
+            st.subheader("Licenciamiento Red Hat Virtualization")
+            st.info(f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico)")
         )
