@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import math
 
 st.set_page_config(page_title="OpenShift Virtualization Sizing", layout="wide")
 
@@ -23,6 +24,7 @@ with tab1:
     total_vms = st.number_input("Cantidad total de VMs", min_value=1, value=10)
     total_vcpu = st.number_input("Total vCPU asignadas", min_value=1, value=40)
     total_ram = st.number_input("Total RAM (GB)", min_value=1, value=128)
+    cores_per_physical_node = st.number_input("Cores por nodo físico", min_value=1, value=32)
 
 # -------------------------
 # TAB 2 - WORKLOADS
@@ -65,18 +67,21 @@ with tab4:
         # -------------------------
         # SUPOSICIONES DE NODO
         # -------------------------
-        cpu_per_node = 32  # cores por nodo (ejemplo)
         ram_per_node = 128  # GB por nodo
-        max_cores_per_node = 128  # OpenShift Virtualization licencia por nodo hasta 128 cores
-
-        # Ajuste de cores por nodo según OVF
-        cores_per_node = min(cpu_per_node, max_cores_per_node)
+        max_cores_per_subscription = 128  # cores por suscripción según OpenShift Virtualization
 
         # Número de nodos basado en CPU y RAM
-        nodes_cpu = cpu_required / cores_per_node
+        nodes_cpu = cpu_required / cores_per_physical_node
         nodes_ram = ram_required / ram_per_node
 
         nodes_required = int(max(nodes_cpu, nodes_ram)) + 1
+
+        # -------------------------
+        # CALCULO DE SUSCRIPCIONES
+        # -------------------------
+        # Suscripciones por nodo: ceil(cores reales por nodo / 128)
+        subscriptions_per_node = math.ceil(cores_per_physical_node / max_cores_per_subscription)
+        total_subscriptions = nodes_required * subscriptions_per_node
 
         # -------------------------
         # RESULTADOS PRINCIPALES
@@ -98,11 +103,10 @@ with tab4:
         # -------------------------
         # LICENCIAMIENTO OPENSHIFT VIRTUALIZATION
         # -------------------------
-        total_subscriptions = nodes_required  # 1 suscripción por nodo físico
-
         st.subheader("Licenciamiento OpenShift Virtualization")
         st.info(
-            f"🔹 Suscripciones necesarias: {total_subscriptions} (1 por nodo físico, hasta 128 cores por nodo)\n"
+            f"🔹 Suscripciones necesarias: {total_subscriptions}\n"
+            f"  (1 por nodo físico, {max_cores_per_subscription} cores por suscripción)\n"
             "🔹 VMs ilimitadas por nodo\n"
             "🔹 Alta disponibilidad nativa sobre Kubernetes"
         )
