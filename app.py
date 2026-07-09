@@ -1,318 +1,145 @@
 import streamlit as st
 import pandas as pd
+import math
 
-from calculations import calculate_sizing
-from architecture import draw_architecture
-from recommendations import generate_recommendations
+st.set_page_config(page_title="OpenShift Virtualization Sizing", layout="wide")
 
-st.set_page_config(
-    page_title="OpenShift Virtualization Assessment",
-    page_icon="🚀",
-    layout="wide"
-)
+st.title("🚀 OpenShift Virtualization Sizing Tool")
 
-st.title("🚀 OpenShift Virtualization Assessment & Sizing Tool")
+# -------------------------
+# TABS
+# -------------------------
+tab1, tab2, tab3, tab4 = st.tabs(["General", "Workloads", "Storage", "Resultados"])
 
-st.sidebar.image(
-    "https://www.redhat.com/profiles/rh/themes/redhatdotcom/img/logo.svg",
-    width=180,
-)
+# -------------------------
+# TAB 1 - GENERAL
+# -------------------------
+with tab1:
+    st.header("Información General")
 
-st.sidebar.header("Assessment")
+    clusters = st.number_input("Cantidad de clusters VMware", min_value=1, value=1)
+    hosts = st.number_input("Hipervisores por cluster", min_value=1, value=3)
+    sockets = st.number_input("Sockets por host", min_value=1, value=2)
 
-customer = st.sidebar.text_input("Cliente")
+    total_vms = st.number_input("Cantidad total de VMs", min_value=1, value=10)
+    total_vcpu = st.number_input("Total vCPU asignadas", min_value=1, value=40)
+    total_ram = st.number_input("Total RAM (GB)", min_value=1, value=128)
+    cores_per_physical_node = st.number_input("Cores por nodo físico", min_value=1, value=32)
 
-project = st.sidebar.text_input("Proyecto")
+# -------------------------
+# TAB 2 - WORKLOADS
+# -------------------------
+with tab2:
+    st.header("Cargas de Trabajo")
 
-environment = st.sidebar.selectbox(
-    "Ambiente",
-    [
-        "Development",
-        "Testing",
-        "Production"
-    ]
-)
+    windows_pct = st.slider("% Windows", 0, 100, 50)
+    rhel_pct = 100 - windows_pct
 
-architecture = st.sidebar.selectbox(
-    "Arquitectura",
-    [
-        "Compact",
-        "Standard",
-        "Enterprise"
-    ]
-)
+    gpu_required = st.selectbox("¿Requiere GPU?", ["No", "Sí"])
+    migration_type = st.selectbox("Tipo de migración", ["En frío", "En caliente"])
 
-criticality = st.sidebar.selectbox(
-    "Criticidad",
-    [
-        "Media",
-        "Alta",
-        "Mission Critical"
-    ]
-)
+# -------------------------
+# TAB 3 - STORAGE
+# -------------------------
+with tab3:
+    st.header("Almacenamiento")
 
-growth = st.sidebar.slider(
-    "Crecimiento esperado (%)",
-    0,
-    100,
-    20
-)
+    storage_total = st.number_input("Storage total (TB)", min_value=1, value=10)
+    storage_growth = st.slider("Crecimiento esperado (%)", 0, 100, 20)
 
-tabs = st.tabs([
-    "Assessment",
-    "Compute",
-    "Storage",
-    "Networking",
-    "Resultados"
-])
+    rwx_required = st.selectbox("¿Requiere RWX (Live Migration)?", ["Sí", "No"])
 
-#######################################################
-# TAB 1
-#######################################################
+# -------------------------
+# TAB 4 - RESULTADOS
+# -------------------------
+with tab4:
+    st.header("Resultados de Sizing")
 
-with tabs[0]:
+    if st.button("Calcular"):
 
-    st.header("Assessment")
+        # -------------------------
+        # CÁLCULOS DE RECURSOS
+        # -------------------------
+        cpu_required = total_vcpu * 1.2  # factor de seguridad 20%
+        ram_required = total_ram * 1.3   # factor de seguridad 30%
+        storage_required = storage_total * (1 + storage_growth / 100) * 1.2  # factor 20%
 
-    col1,col2 = st.columns(2)
+        # -------------------------
+        # SUPOSICIONES DE NODO
+        # -------------------------
+        ram_per_node = 128  # GB por nodo
+        max_cores_per_subscription = 128  # cores por suscripción según OpenShift Virtualization
 
-    with col1:
+        # Número de nodos basado en CPU y RAM
+        nodes_cpu = cpu_required / cores_per_physical_node
+        nodes_ram = ram_required / ram_per_node
 
-        clusters = st.number_input(
-            "Clusters VMware",
-            1,
-            100,
-            1
+        nodes_required = int(max(nodes_cpu, nodes_ram)) + 1
+
+        # -------------------------
+        # CALCULO DE SUSCRIPCIONES
+        # -------------------------
+        # Suscripciones por nodo: ceil(cores reales por nodo / 128)
+        subscriptions_per_node = math.ceil(cores_per_physical_node / max_cores_per_subscription)
+        total_subscriptions = nodes_required * subscriptions_per_node
+
+        # -------------------------
+        # RESULTADOS PRINCIPALES
+        # -------------------------
+        col1, col2, col3 = st.columns(3)
+        col1.metric("CPU requerida (vCPU)", round(cpu_required, 2))
+        col2.metric("RAM requerida (GB)", round(ram_required, 2))
+        col3.metric("Storage requerido (TB)", round(storage_required, 2))
+
+        st.subheader("Infraestructura sugerida")
+        st.success(f"🔹 Nodos requeridos: {nodes_required}")
+
+        if gpu_required == "Sí":
+            st.warning("⚠️ Considerar nodos con GPU")
+
+        if rwx_required == "Sí":
+            st.info("📦 Se requiere almacenamiento RWX (Live Migration)")
+
+        # -------------------------
+        # LICENCIAMIENTO OPENSHIFT VIRTUALIZATION
+        # -------------------------
+        st.subheader("Licenciamiento OpenShift Virtualization")
+        st.info(
+            f"🔹 Suscripciones necesarias: {total_subscriptions}\n"
+            f"  (1 por nodo físico, {max_cores_per_subscription} cores por suscripción)\n"
+            "🔹 VMs ilimitadas por nodo\n"
+            "🔹 Alta disponibilidad nativa sobre Kubernetes"
         )
 
-        hosts = st.number_input(
-            "Hosts por Cluster",
-            1,
-            128,
-            3
-        )
+        # -------------------------
+        # GRÁFICO RESUMEN
+        # -------------------------
+        st.subheader("Resumen de recursos")
+        chart_data = pd.DataFrame({
+            "Recurso": ["CPU", "RAM", "Storage"],
+            "Cantidad": [cpu_required, ram_required, storage_required]
+        })
+        st.bar_chart(chart_data.set_index("Recurso"))
 
-        vms = st.number_input(
-            "Cantidad de VMs",
-            1,
-            100000,
-            150
-        )
-
-    with col2:
-
-        windows = st.slider(
-            "Windows %",
-            0,
-            100,
-            50
-        )
-
-        linux = 100-windows
-
-        st.metric(
-            "Linux %",
-            linux
-        )
-
-        gpu = st.checkbox(
-            "GPU Required"
-        )
-
-#######################################################
-# TAB 2
-#######################################################
-
-with tabs[1]:
-
-    st.header("Compute")
-
-    col1,col2,col3 = st.columns(3)
-
-    with col1:
-
-        total_vcpu = st.number_input(
-            "Total vCPU",
-            1,
-            500000,
-            400
-        )
-
-    with col2:
-
-        total_ram = st.number_input(
-            "RAM Total (GB)",
-            1,
-            100000,
-            1024
-        )
-
-    with col3:
-
-        cores = st.number_input(
-            "Cores por Nodo",
-            8,
-            256,
-            64
-        )
-
-#######################################################
-# TAB 3
-#######################################################
-
-with tabs[2]:
-
-    st.header("Storage")
-
-    storage = st.number_input(
-        "Capacidad (TB)",
-        1,
-        5000,
-        50
-    )
-
-    storage_type = st.selectbox(
-        "Tipo",
-        [
-            "OpenShift Data Foundation",
-            "NetApp",
-            "Dell PowerFlex",
-            "Pure Storage",
-            "NFS"
-        ]
-    )
-
-    rwx = st.checkbox(
-        "Live Migration (RWX)"
-    )
-
-#######################################################
-# TAB 4
-#######################################################
-
-with tabs[3]:
-
-    st.header("Networking")
-
-    network_speed = st.selectbox(
-        "Velocidad",
-        [
-            "10Gb",
-            "25Gb",
-            "40Gb",
-            "100Gb"
-        ]
-    )
-
-    multus = st.checkbox("Multus")
-
-    sriov = st.checkbox("SR-IOV")
-
-#######################################################
-# TAB 5
-#######################################################
-
-with tabs[4]:
-
-    st.header("Resultados")
-
-    if st.button("🚀 Calcular Infraestructura"):
-
-        result = calculate_sizing(
-            total_vcpu,
-            total_ram,
-            storage,
-            growth,
-            cores
-        )
-
-        c1,c2,c3,c4 = st.columns(4)
-
-        c1.metric(
-            "Workers",
-            result["workers"]
-        )
-
-        c2.metric(
-            "Masters",
-            result["masters"]
-        )
-
-        c3.metric(
-            "CPU",
-            result["cpu"]
-        )
-
-        c4.metric(
-            "RAM",
-            result["ram"]
-        )
-
-        st.divider()
-
-        st.subheader("Arquitectura")
-
-        draw_architecture(
-            result["workers"]
-        )
-
-        st.divider()
-
-        st.subheader("Assessment Score")
-
-        score = result["score"]
-
-        st.progress(score/100)
-
-        st.metric(
-            "Infrastructure Ready",
-            f"{score}%"
-        )
-
-        st.divider()
-
-        st.subheader("Recomendaciones")
-
-        rec = generate_recommendations(
-            result,
-            gpu,
-            rwx,
-            network_speed,
-            storage_type
-        )
-
-        for r in rec:
-            st.success(r)
-
-        st.divider()
-
-        st.subheader("Sizing")
-
-        df = pd.DataFrame({
-
-            "Recurso":[
-                "CPU",
-                "RAM",
-                "Storage"
+        # -------------------------
+        # REPORTE DESCARGABLE
+        # -------------------------
+        st.subheader("Exportar resultados")
+        report = pd.DataFrame({
+            "Parametro": [
+                "Clusters", "Hosts", "VMs", "CPU requerida",
+                "RAM requerida", "Storage requerido", "Nodos", "Suscripciones OpenShift Virtualization"
             ],
-
-            "Cantidad":[
-                result["cpu"],
-                result["ram"],
-                result["storage"]
+            "Valor": [
+                clusters, hosts, total_vms, cpu_required,
+                ram_required, storage_required, nodes_required, total_subscriptions
             ]
-
         })
 
-        st.bar_chart(
-            df.set_index("Recurso")
-        )
-
-        csv = df.to_csv(index=False).encode()
-
+        csv = report.to_csv(index=False).encode('utf-8')
         st.download_button(
-            "📥 Descargar Reporte",
-            csv,
-            "Sizing.csv",
-            "text/csv"
+            label="📥 Descargar reporte CSV",
+            data=csv,
+            file_name="openshift_sizing.csv",
+            mime="text/csv"
         )
