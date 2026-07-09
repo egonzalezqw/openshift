@@ -1,34 +1,118 @@
-# ===========================
-# OpenShift Virtualization Assessment Tool
-# ===========================
+def generate_recommendations(
+    result,
+    gpu=False,
+    rwx=False,
+    network="25Gb",
+    storage="OpenShift Data Foundation"
+):
 
-# Streamlit
-streamlit>=1.46.0
+    recommendations = []
 
-# Data Analysis
-pandas>=2.2.0
-numpy>=2.1.0
+    ##################################################
+    # Arquitectura
+    ##################################################
 
-# Excel
-openpyxl>=3.1.5
+    if result["workers"] < 5:
+        recommendations.append(
+            "Arquitectura Compact recomendada para ambientes pequeños."
+        )
 
-# PDF Reports
-reportlab>=4.2.0
+    elif result["workers"] < 15:
+        recommendations.append(
+            "Arquitectura Standard recomendada."
+        )
 
-# Architecture Diagrams
-graphviz>=0.20.3
+    else:
+        recommendations.append(
+            "Arquitectura Enterprise recomendada."
+        )
 
-# Charts
-plotly>=5.24.0
+    ##################################################
+    # Storage
+    ##################################################
 
-# Image Processing
-Pillow>=11.0.0
+    if storage == "OpenShift Data Foundation":
+        recommendations.append(
+            "Utilizar OpenShift Data Foundation para almacenamiento persistente."
+        )
 
-# HTTP Requests
-requests>=2.32.0
+    else:
+        recommendations.append(
+            f"Validar compatibilidad CSI con {storage}."
+        )
 
-# YAML
-PyYAML>=6.0.2
+    ##################################################
+    # RWX
+    ##################################################
 
-# Export
-xlsxwriter>=3.2.0
+    if rwx:
+        recommendations.append(
+            "Habilitar almacenamiento RWX para Live Migration."
+        )
+
+    ##################################################
+    # GPU
+    ##################################################
+
+    if gpu:
+        recommendations.append(
+            "Configurar GPU Passthrough o NVIDIA GPU Operator."
+        )
+
+    ##################################################
+    # Networking
+    ##################################################
+
+    if network == "10Gb":
+        recommendations.append(
+            "Se recomienda 25Gb para cargas de producción."
+        )
+
+    elif network == "25Gb":
+        recommendations.append(
+            "25Gb es una excelente opción para OpenShift Virtualization."
+        )
+
+    elif network == "40Gb":
+        recommendations.append(
+            "40Gb recomendado para ambientes de alta demanda."
+        )
+
+    elif network == "100Gb":
+        recommendations.append(
+            "100Gb recomendado para IA, HPC o grandes volúmenes de datos."
+        )
+
+    ##################################################
+    # Alta disponibilidad
+    ##################################################
+
+    recommendations.append(
+        "Implementar tres nodos Control Plane para Alta Disponibilidad."
+    )
+
+    recommendations.append(
+        "Configurar monitoreo con Prometheus y Grafana."
+    )
+
+    recommendations.append(
+        "Implementar Backup con OpenShift API for Data Protection."
+    )
+
+    recommendations.append(
+        "Utilizar GitOps (ArgoCD) para automatización."
+    )
+
+    recommendations.append(
+        "Implementar Red Hat Advanced Cluster Management."
+    )
+
+    recommendations.append(
+        "Implementar Red Hat Advanced Cluster Security."
+    )
+
+    recommendations.append(
+        "Utilizar Quay Enterprise como registro de imágenes."
+    )
+
+    return recommendations
